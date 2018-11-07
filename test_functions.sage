@@ -6,6 +6,8 @@ if '' not in sys.path:
 from igp import *
 
 #import pulp
+import pandas as pd
+import matplotlib.pyplot as plt
 import random
 import csv
 import time
@@ -252,11 +254,11 @@ def generate_test_function_library(function_name_list,two_slope_fill_in_epsilon_
                 function_table.writerow([name,epsilon,new_fn.end_points(),new_fn.values_at_end_points(),t])
     file.close()
 
-def convert_stringlist_to_list(list):
+def convert_string_to_list(string):
     """
     Convert the string of a list to the actual list.
     """
-    return [QQ(l) for l in list[1:-1].split(",")]
+    return [QQ(l) for l in string[1:-1].split(",")]
 
 def write_mip_solving_performance(readfile_name,writefile_name,perturbation_epsilon_list,solver='Coin'):
     """
