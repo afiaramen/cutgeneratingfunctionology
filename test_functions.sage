@@ -258,7 +258,7 @@ def convert_string_to_list(string):
     """
     Convert the string of a list to the actual list.
     """
-    return [QQ(l) for l in string[1:-1].split(",")]
+    return [float(l) for l in string[1:-1].split(",")]
 
 def write_mip_solving_performance(readfile_name,writefile_name,perturbation_epsilon_list,solver='Coin'):
     """
