@@ -15,10 +15,11 @@ from sage.misc.sage_timeit import sage_timeit
 
 random.seed(500)
 
-default_function_name_list=['gj_forward_3_slope','drlm_backward_3_slope','chen_4_slope','kzh_7_slope_1','kzh_10_slope_1']
+default_function_name_list=['bcdsp_arbitrary_slope','chen_4_slope','drlm_backward_3_slope','gj_forward_3_slope','kzh_7_slope_1','kzh_7_slope_2','kzh_7_slope_3','kzh_7_slope_4','kzh_10_slope_1','kzh_28_slope_1','kzh_28_slope_2']
 default_two_slope_fill_in_epsilon_list=[1/(i*10) for i in range(1,11)]
 default_perturbation_epsilon_list=[i/100 for i in range(3)]
 default_max_number_of_bkpts=[0,10,20,40,100,400,1000,10000,100000]
+
 
 
 def generate_mip_of_delta_pi_min_pulp_dlog(fn):
@@ -254,11 +255,33 @@ def generate_test_function_library(function_name_list,two_slope_fill_in_epsilon_
                 function_table.writerow([name,epsilon,new_fn.end_points(),new_fn.values_at_end_points(),t])
     file.close()
 
-def convert_string_to_list(string):
+def convert_string_to_list_float(string):
     """
-    Convert the string of a list to the actual list.
+    Convert the string of a list to the actual floating point list.
     """
     return [float(l) for l in string[1:-1].split(",")]
+
+def convert_string_to_list_QQ(string):
+    """
+    Convert the string of a list to the actual QQ list.
+    """
+    return [QQ(l) for l in string[1:-1].split(",")]
+
+def write_function_table(base_function_list,two_slope_fill_in_epsilon_list):
+    """
+    Generate a csv file which contains all test functions' information.
+    """
+    with open('functions.csv', mode='w') as file:
+        function_table = csv.writer(file, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+        function_table.writerow(['base_function','two_slope_fill_in_epsilon'])
+        for s in base_function_list:
+            for two_slope_epsilon in two_slope_fill_in_epsilon_list:
+                if s=='bcdsp_arbitrary_slope':
+                    for k in ['5','6','8','9','15','20','30']:
+                        function_table.writerow([s+'_'+k,two_slope_epsilon])
+                else:
+                    function_table.writerow([s,two_slope_epsilon])
+    file.close()
 
 def write_mip_solving_performance(readfile_name,writefile_name,perturbation_epsilon_list,solver='Coin'):
     """
