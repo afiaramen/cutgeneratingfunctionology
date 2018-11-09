@@ -7,10 +7,13 @@ from igp import *
 
 #import pulp
 import pandas as pd
+import numpy as np
 import matplotlib.pyplot as plt
 import random
 import csv
 import time
+import os
+import glob
 from sage.misc.sage_timeit import sage_timeit
 
 random.seed(500)
@@ -20,7 +23,19 @@ default_two_slope_fill_in_epsilon_list=[1/(i*10) for i in range(1,11)]
 default_perturbation_epsilon_list=[i/100 for i in range(3)]
 default_max_number_of_bkpts=[0,10,20,40,100,400,1000,10000,100000]
 
-
+def merge_csv_files(filename,header):
+    """
+    Merge all .csv files with the same header to one .csv file.
+    """
+    allFiles = glob.glob(os.path.join("*.csv"))
+    np_array_list = []
+    for file_ in allFiles:
+        df = pd.read_csv(file_,index_col=None, header=int(0))
+        np_array_list.append(df.as_matrix())
+    comb_np_array = np.vstack(np_array_list)
+    big_frame = pd.DataFrame(comb_np_array)
+    big_frame.columns = header
+    big_frame.to_csv(filename)
 
 def generate_mip_of_delta_pi_min_pulp_dlog(fn):
     """
@@ -229,31 +244,35 @@ def generate_mip_of_delta_pi_min_dlog(fn,solver='Coin'):
         p.add_constraint(sum([(gamma_z[2*i-1]+gamma_z[2*i])*int(format(i-1,'0%sb' %(m+1))[k])  for i in range(1,2*n-1)])==s_z[k])
     return p
 
-def generate_test_function_library(function_name_list,two_slope_fill_in_epsilon_list,filename):
+def generate_test_function_library(readfile_name,perturbation_epsilon_list,writefile_name):
     """
-    Store the breakpoints and values of (complicated) functions into the file filename.csv
+    Store the breakpoints and values of (complicated) functions into the file writefile_name.
     """
-    def generating_time(fn,epsilon):
-        global new_fn
-        new_fn=symmetric_2_slope_fill_in(fn,epsilon)
-        return new_fn
-    with open(filename+'.csv',mode='w') as file:
-        function_table = csv.writer(file, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
-        function_table.writerow(['base_function','two_slope_fill_in_epsilon','breakpoints','values','generating time (s)'])
-        for name in function_name_list:
-            global base_fn
-            global new_name
-            new_name=name
-            base_fn=eval(name)()
-            function_table.writerow([name,None,base_fn.end_points(),base_fn.values_at_end_points(),sage_timeit('base_fn=eval(new_name)()',globals(),number=2,repeat=2,seconds=True)])
-            for two_slope_fill_in_epsilon in two_slope_fill_in_epsilon_list:
-                global epsilon
-                global proc
-                epsilon=two_slope_fill_in_epsilon
-                proc=generating_time
-                t=sage_timeit('new_fn=proc(base_fn, epsilon)',globals(),number=1,repeat=1,seconds=True)
-                function_table.writerow([name,epsilon,new_fn.end_points(),new_fn.values_at_end_points(),t])
-    file.close()
+    with open(writefile_name,mode='w') as writefile:
+        new_function_table = csv.writer(writefile, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+        new_function_table.writerow(['base_function','two_slope_fill_in_epsilon','perturbation_epsilon','breakpoints','values'])
+        with open(readfile_name,mode='r') as readfile:
+            function_table = csv.reader(readfile,delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+            line_count=0
+            for row in function_table:
+                if line_count==0:
+                    line_count=1
+                    continue
+                else:
+                    name,two_epsilon=row
+                    two_epsilon=QQ(two_epsilon)
+                    if name[:5]=='bcdsp':
+                        slope_value=int(name[22:])
+                        fn=bcdsp_arbitrary_slope(k=slope_value)
+                    else:
+                        fn=eval(name)()
+                    if two_epsilon!=0:
+                        fn=symmetric_2_slope_fill_in(fn,two_epsilon)
+                    for p_epsilon in perturbation_epsilon_list:
+                        new_fn=function_random_perturbation(fn,p_epsilon)
+                        new_function_table.writerow([name,two_epsilon,p_epsilon,new_fn.end_points(),new_fn.values_at_end_points()])
+        readfile.close()
+    writefile.close()
 
 def convert_string_to_list_float(string):
     """
