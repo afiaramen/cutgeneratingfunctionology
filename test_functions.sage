@@ -244,53 +244,67 @@ def generate_mip_of_delta_pi_min_dlog(fn,solver='Coin'):
         p.add_constraint(sum([(gamma_z[2*i-1]+gamma_z[2*i])*int(format(i-1,'0%sb' %(m+1))[k])  for i in range(1,2*n-1)])==s_z[k])
     return p
 
-def generate_test_function_library(readfile_name,perturbation_epsilon_list,writefile_name):
+def generate_test_function_library(readfile_name,writefile_path,perturbation_epsilon_list):
     """
-    Store the breakpoints and values of (complicated) functions into the file writefile_name.
+    Store the breakpoints and values of (complicated) functions into the files.
     """
-    with open(writefile_name,mode='w') as writefile:
-        new_function_table = csv.writer(writefile, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
-        new_function_table.writerow(['base_function','two_slope_fill_in_epsilon','perturbation_epsilon','breakpoints','values'])
-        with open(readfile_name,mode='r') as readfile:
-            function_table = csv.reader(readfile,delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
-            line_count=0
-            for row in function_table:
-                if line_count==0:
-                    line_count=1
-                    continue
+    with open(readfile_name,mode='r') as readfile:
+        function_table = csv.reader(readfile,delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+        line_count=0
+        k=0
+        flag=0
+        for row in function_table:
+            if line_count==0:
+                line_count=1
+                continue
+            else:
+                name,two_epsilon=row
+                two_epsilon=QQ(two_epsilon)
+                if name[:5]=='bcdsp':
+                    slope_value=int(name[22:])
+                    fn=bcdsp_arbitrary_slope(k=slope_value)
                 else:
-                    name,two_epsilon=row
-                    two_epsilon=QQ(two_epsilon)
-                    if name[:5]=='bcdsp':
-                        slope_value=int(name[22:])
-                        fn=bcdsp_arbitrary_slope(k=slope_value)
+                    fn=eval(name)()
+                if two_epsilon!=0:
+                    fn=symmetric_2_slope_fill_in(fn,two_epsilon)
+                # if the two slope function is the same as the previous one, continue
+                if flag==0:
+                    previous_fn=fn
+                    flag=1
+                else:
+                    if fn==previous_fn:
+                        continue
                     else:
-                        fn=eval(name)()
-                    if two_epsilon!=0:
-                        fn=symmetric_2_slope_fill_in(fn,two_epsilon)
-                    for p_epsilon in perturbation_epsilon_list:
-                        new_fn=function_random_perturbation(fn,p_epsilon)
-                        new_function_table.writerow([name,two_epsilon,p_epsilon,new_fn.end_points(),new_fn.values_at_end_points()])
-        readfile.close()
-    writefile.close()
+                        previous_fn=fn
+                for p_epsilon in perturbation_epsilon_list:
+                    new_fn=function_random_perturbation(fn,p_epsilon)
+                    with open(writefile_path+str(name)+'_'+str(k)+'.csv',mode='w') as writefile:
+                        function_table = csv.writer(writefile, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+                        function_table.writerow([name,two_epsilon,p_epsilon])
+                        for i in range(len(new_fn.end_points())):
+                            function_table.writerow([new_fn.end_points()[i],new_fn.values_at_end_points()[i]])
+                    writefile.close()
+                    k=k+1
+    readfile.close()
+
 
 def convert_string_to_list_float(string):
     """
     Convert the string of a list to the actual floating point list.
     """
-    return [float(l) for l in string[1:-1].split(",")]
+    return [float(l) for l in string[1:-1].split(", ")]
 
 def convert_string_to_list_QQ(string):
     """
     Convert the string of a list to the actual QQ list.
     """
-    return [QQ(l) for l in string[1:-1].split(",")]
+    return [QQ(l) for l in string[1:-1].split(", ")]
 
-def write_function_table(base_function_list,two_slope_fill_in_epsilon_list):
+def write_function_table(base_function_list,two_slope_fill_in_epsilon_list,filename):
     """
     Generate a csv file which contains all test functions' information.
     """
-    with open('functions.csv', mode='w') as file:
+    with open(filename, mode='w') as file:
         function_table = csv.writer(file, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
         function_table.writerow(['base_function','two_slope_fill_in_epsilon'])
         for s in base_function_list:
