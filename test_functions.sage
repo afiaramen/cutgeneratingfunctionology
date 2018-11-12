@@ -251,14 +251,17 @@ def generate_test_function_library(readfile_name,writefile_path,perturbation_eps
     with open(readfile_name,mode='r') as readfile:
         function_table = csv.reader(readfile,delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
         line_count=0
-        k=0
-        flag=0
+        fn_flag=0
+        previous_name='dummy'
         for row in function_table:
             if line_count==0:
                 line_count=1
                 continue
             else:
                 name,two_epsilon=row
+                if previous_name!=name:
+                    k=0
+                    previous_name=name
                 two_epsilon=QQ(two_epsilon)
                 if name[:5]=='bcdsp':
                     slope_value=int(name[22:])
@@ -268,9 +271,9 @@ def generate_test_function_library(readfile_name,writefile_path,perturbation_eps
                 if two_epsilon!=0:
                     fn=symmetric_2_slope_fill_in(fn,two_epsilon)
                 # if the two slope function is the same as the previous one, continue
-                if flag==0:
+                if fn_flag==0:
                     previous_fn=fn
-                    flag=1
+                    fn_flag=1
                 else:
                     if fn==previous_fn:
                         continue
@@ -287,6 +290,26 @@ def generate_test_function_library(readfile_name,writefile_path,perturbation_eps
                     k=k+1
     readfile.close()
 
+def reproduce_function_from_bkpts_and_values(filename):
+    """
+    Return a function given by its bkpts and values stored in a csv file.
+    """
+    bkpts=[]
+    values=[]
+    with open(filename,mode='r') as readfile:
+        function = csv.reader(readfile,delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+        line_count=0
+        for row in function:
+            if line_count==0:
+                line_count=1
+                name,two_epsilon,p_epsilon=row
+            else:
+                bkpt,value=row
+                bkpts.append(QQ(bkpt))
+                values.append(QQ(value))
+        fn=piecewise_function_from_breakpoints_and_values(bkpts,values)
+    readfile.close()
+    return name,two_epsilon,p_epsilon,fn
 
 def convert_string_to_list_float(string):
     """
@@ -308,11 +331,12 @@ def write_function_table(base_function_list,two_slope_fill_in_epsilon_list,filen
         function_table = csv.writer(file, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
         function_table.writerow(['base_function','two_slope_fill_in_epsilon'])
         for s in base_function_list:
-            for two_slope_epsilon in two_slope_fill_in_epsilon_list:
-                if s=='bcdsp_arbitrary_slope':
-                    for k in ['5','6','8','9','15','20','30']:
+            if s=='bcdsp_arbitrary_slope':
+                for k in ['5','6','8','9','15','20','30']:
+                    for two_slope_epsilon in two_slope_fill_in_epsilon_list:
                         function_table.writerow([s+'_'+k,two_slope_epsilon])
-                else:
+            else:
+                for two_slope_epsilon in two_slope_fill_in_epsilon_list:
                     function_table.writerow([s,two_slope_epsilon])
     file.close()
 
@@ -350,35 +374,6 @@ def write_mip_solving_performance(readfile_name,writefile_name,perturbation_epsi
                         sol_time=sage_timeit('mip.solve()',globals(),number=1,repeat=1,seconds=True)
                         performance_table.writerow([name,two_epsilon,pert_epsilon,len(actual_bkpts),gen_time,sol_time])
         readfile.close()
-    file.close()
-
-def write_performance_table(function_name_list,two_slope_fill_in_epsilon_list,perturbation_epsilon_list):
-    with open('performance.csv', mode='w') as file:
-        performance_table = csv.writer(file, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
-        performance_table.writerow(['base_function', 'two_slope_fill_in_epsilon', 'perturbation_epsilon', '# breakpoints','# slopes','# vertices','# additive vertices','add_v/v ratio','delta pi min','is subadditive','# .min nodes (constant)', '# .min nodes (affine)', '# .min nodes (mixed)','.min n/v ratio (constant)','.min n/v ratio (affine)','.min n/v ratio (mixed)', '# .is_subadditive nodes (constant)', '# .is_subadditive nodes (affine)', '# .is_subadditive nodes (mixed)', '.is_subadditive n/v ratio (constant)', '.is_subadditive n/v ratio (affine)', '.is_subadditive n/v ratio (mixed)','time .min (constant) (s)','time .min (affine) (s)','time .min (mixed) (s)', 'time .is_subadditive (constant) (s)','time .is_subadditive (affine) (s)', 'time .is_subadditive (mixed) (s)','time subadditivity_test (s)'])
-        for name in function_name_list:
-            global base_fn
-            base_fn=eval(name)()
-            v=number_of_vertices(base_fn)
-            add_v=number_of_additive_vertices(base_fn)
-            m,n_m_c,t_m_c=measure_T_min(base_fn,bound="constant",number=2,repeat=2)
-            m,n_m_a,t_m_a=measure_T_min(base_fn,bound="affine",number=2,repeat=2)
-            m,n_m_m,t_m_m=measure_T_min(base_fn,bound="mixed",number=2,repeat=2)
-            is_sub,n_i_c,t_i_c=measure_T_is_subadditive(base_fn,bound="constant",number=2,repeat=2)
-            is_sub,n_i_a,t_i_a=measure_T_is_subadditive(base_fn,bound="affine",number=2,repeat=2)
-            is_sub,n_i_m,t_i_m=measure_T_is_subadditive(base_fn,bound="mixed",number=2,repeat=2)
-            performance_table.writerow([name,None,None,len(base_fn.end_points()),number_of_slopes(base_fn),v,add_v,float(add_v/v),m,is_sub,n_m_c,n_m_a,n_m_m, float(n_m_c/v),float(n_m_a/v),float(n_m_m/v),n_i_c,n_i_a,n_i_m,float(n_i_c/v),float(n_i_a/v),float(n_i_m/v),t_m_c,t_m_a,t_m_m,t_i_c,t_i_a,t_i_m,sage_timeit('subadditivity_test(base_fn,stop_if_fail=True)',globals(),number=2,repeat=2,seconds=True)])
-            for fill_in_epsilon in two_slope_fill_in_epsilon_list:
-                for perturb_epsilon in perturbation_epsilon_list:
-                    global fn
-                    fn=test_function_from_two_slope_fill_in_extreme_functions(base_fn,fill_in_epsilon,perturb_epsilon)
-                    add_v=number_of_additive_vertices(fn)
-                    v=number_of_vertices(fn)
-                    m,n_m_c,t_m_c=measure_T_min(fn,bound="constant",number=1,repeat=1)
-                    m,n_m_a,t_m_a=measure_T_min(fn,bound="affine",number=1,repeat=1)
-                    is_sub,n_i_c,t_i_c=measure_T_is_subadditive(fn,bound="constant",number=1,repeat=1)
-                    is_sub,n_i_a,t_i_a=measure_T_is_subadditive(fn,bound="affine",number=1,repeat=1)
-                    performance_table.writerow([name,None,None,len(fn.end_points()),number_of_slopes(fn),v,add_v,float(add_v/v),m,is_sub,n_m_c,n_m_a,n_m_m, float(n_m_c/v),float(n_m_a/v),float(n_m_m/v),n_i_c,n_i_a,n_i_m,float(n_i_c/v),float(n_i_a/v),float(n_i_m/v),t_m_c,t_m_a,t_m_m,t_i_c,t_i_a,t_i_m,sage_timeit('subadditivity_test(fn,stop_if_fail=True)',globals(),number=1,repeat=1,seconds=True)])
     file.close()
 
 def measure_T_min(fn,max_number_of_bkpts,search_method,solver='Coin',**kwds):
