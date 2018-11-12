@@ -251,7 +251,6 @@ def generate_test_function_library(readfile_name,writefile_path,perturbation_eps
     with open(readfile_name,mode='r') as readfile:
         function_table = csv.reader(readfile,delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
         line_count=0
-        fn_flag=0
         previous_name='dummy'
         for row in function_table:
             if line_count==0:
@@ -262,23 +261,20 @@ def generate_test_function_library(readfile_name,writefile_path,perturbation_eps
                 if previous_name!=name:
                     k=0
                     previous_name=name
+                    distance=1
                 two_epsilon=QQ(two_epsilon)
+                if two_epsilon>distance:
+                    continue
                 if name[:5]=='bcdsp':
                     slope_value=int(name[22:])
-                    fn=bcdsp_arbitrary_slope(k=slope_value)
+                    old_fn=bcdsp_arbitrary_slope(k=slope_value)
                 else:
-                    fn=eval(name)()
+                    old_fn=eval(name)()
                 if two_epsilon!=0:
-                    fn=symmetric_2_slope_fill_in(fn,two_epsilon)
-                # if the two slope function is the same as the previous one, continue
-                if fn_flag==0:
-                    previous_fn=fn
-                    fn_flag=1
+                    fn=symmetric_2_slope_fill_in(old_fn,two_epsilon)
+                    distance=max(abs(v) for v in (old_fn-fn).values_at_end_points())
                 else:
-                    if fn==previous_fn:
-                        continue
-                    else:
-                        previous_fn=fn
+                    fn=old_fn
                 for p_epsilon in perturbation_epsilon_list:
                     new_fn=function_random_perturbation(fn,p_epsilon)
                     with open(writefile_path+str(name)+'_'+str(k)+'.csv',mode='w') as writefile:
