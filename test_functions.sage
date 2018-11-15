@@ -18,7 +18,7 @@ from sage.misc.sage_timeit import sage_timeit
 
 random.seed(500)
 
-default_function_name_list=['bcdsp_arbitrary_slope','chen_4_slope','drlm_backward_3_slope','gj_forward_3_slope','kzh_7_slope_1','kzh_7_slope_2','kzh_7_slope_3','kzh_7_slope_4','kzh_10_slope_1','kzh_28_slope_1','kzh_28_slope_2']
+default_function_name_list=['chen_4_slope','drlm_backward_3_slope','gj_forward_3_slope','kzh_3_slope_param_extreme_1','kzh_3_slope_param_extreme_2','kzh_4_slope_param_extreme_1','kzh_7_slope_1','kzh_7_slope_2','kzh_7_slope_3','kzh_7_slope_4','kzh_10_slope_1','kzh_28_slope_1','kzh_28_slope_2','gj_2_slope_repeat','bcdsp_arbitrary_slope']
 default_two_slope_fill_in_epsilon_list=[1/(i*10) for i in range(1,11)]
 default_perturbation_epsilon_list=[i/100 for i in range(3)]
 default_max_number_of_bkpts=[0,10,20,40,100,400,1000,10000,100000]
@@ -244,6 +244,94 @@ def generate_mip_of_delta_pi_min_dlog(fn,solver='Coin'):
         p.add_constraint(sum([(gamma_z[2*i-1]+gamma_z[2*i])*int(format(i-1,'0%sb' %(m+1))[k])  for i in range(1,2*n-1)])==s_z[k])
     return p
 
+def write_performance_file_minimum(readfile_path,readfile_name,writefile_path):
+    """
+    Read from readfile_name and write time performance of computing the minimum using either the solver, the naive method or fast method.
+    """
+    bkpts=[]
+    values=[]
+    with open(readfile_path+readfile_name,mode='r') as readfile:
+        function = csv.reader(readfile,delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+        line_count=0
+        for row in function:
+            if line_count==0:
+                line_count=1
+                name,two_epsilon,p_epsilon,method_1,method_2=row
+            else:
+                bkpt,value=row
+                bkpts.append(QQ(bkpt))
+                values.append(QQ(value))
+        global fn
+        fn=piecewise_function_from_breakpoints_and_values(bkpts,values)
+    readfile.close()
+    with open(writefile_path+'result_'+readfile_name,mode='w') as writefile:
+        performance_table = csv.writer(writefile, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+        performance_table.writerow(['name','two_epsilon','p_epsilon','bkpts','vertices','additive_vertices','min','node_selection','lp_size','time(s)'])
+        if method_1=='naive':
+            def solve_naive(f):
+                global dummy
+                dummy=SubadditivityTestTree(gmic())
+                dummy.min=minimum_of_delta_pi(f)
+            global proc2
+            proc2=solve_naive
+            t=sage_timeit('proc2(fn)',globals(),number=1,repeat=1,seconds=True)
+            if t<600:
+                t=sage_timeit('proc2(fn)',globals(),seconds=True)
+            m=dummy.min
+        elif method_1=='cplex':
+            def generate_mip(f):
+                global mip
+                mip=generate_mip_of_delta_pi_min_dlog(f,solver='cplex')
+                return mip
+            global proc1
+            proc1=generate_mip
+            gen_time=sage_timeit('proc1(fn)',globals(),number=1,repeat=1,seconds=True)
+            def solve_cplex(p):
+                global mi
+                mi=p.solve()
+                return mi
+            global sol1
+            sol1=solve_cplex
+            sol_time=sage_timeit('sol1(mip)',globals(),number=1,repeat=1,seconds=True)
+            if sol_time<600:
+                sol_time=sage_timeit('mip.solve()',globals(),seconds=True)
+            t=[gen_time,sol_time]
+        else:
+            lp=int(method2)
+            def time_min():
+                global T
+                T=SubadditivityTestTree(fn)
+                T.minimum(max_number_of_bkpts=lp,search_method=method_1,solver='cplex')
+            global proc
+            proc=time_min
+            t=sage_timeit('proc()',globals(),number=1,repeat=1,seconds=True)
+            if t<600:
+                t=sage_timeit('proc()',globals(),seconds=True)
+            mi=T.min
+        performance_table.writerow([name,two_epsilon,p_epsilon,len(bkpts),number_of_vertices(fn),number_of_additive_vertices(fn),m,method_1,method_2,t])
+    writefile.close()
+
+
+def write_performance_file_objective(readfile_name,writefile_path,epsilon=-1/100):
+    """
+    Read from readfile_name and write time performance of checking whether the minimum>=epsilon using either the naive method or fast method.
+    """
+    bkpts=[]
+    values=[]
+    with open(readfilename,mode='r') as readfile:
+        function = csv.reader(readfile,delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+        line_count=0
+        for row in function:
+            if line_count==0:
+                line_count=1
+                name,two_epsilon,p_epsilon,method_1,method_2=row
+            else:
+                bkpt,value=row
+                bkpts.append(QQ(bkpt))
+                values.append(QQ(value))
+        fn=piecewise_function_from_breakpoints_and_values(bkpts,values)
+    readfile.close()
+
 def generate_test_function_library(readfile_name,writefile_path,perturbation_epsilon_list):
     """
     Store the breakpoints and values of (complicated) functions into the files.
@@ -268,6 +356,9 @@ def generate_test_function_library(readfile_name,writefile_path,perturbation_eps
                 if name[:5]=='bcdsp':
                     slope_value=int(name[22:])
                     old_fn=bcdsp_arbitrary_slope(k=slope_value)
+                elif name[:17]=='gj_2_slope_repeat':
+                    m,n=name[18:].split('_')
+                    old_fn=gj_2_slope_repeat(m=int(m),n=int(n))
                 else:
                     old_fn=eval(name)()
                 if two_epsilon!=0:
@@ -277,13 +368,31 @@ def generate_test_function_library(readfile_name,writefile_path,perturbation_eps
                     fn=old_fn
                 for p_epsilon in perturbation_epsilon_list:
                     new_fn=function_random_perturbation(fn,p_epsilon)
-                    with open(writefile_path+str(name)+'_'+str(k)+'.csv',mode='w') as writefile:
+                    with open(writefile_path+str(name)+'_'+str(k)+'_'+'naive.csv',mode='w') as writefile:
                         function_table = csv.writer(writefile, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
-                        function_table.writerow([name,two_epsilon,p_epsilon])
+                        function_table.writerow([name,two_epsilon,p_epsilon,'naive','naive'])
                         for i in range(len(new_fn.end_points())):
                             function_table.writerow([new_fn.end_points()[i],new_fn.values_at_end_points()[i]])
                     writefile.close()
                     k=k+1
+
+                    with open(writefile_path+str(name)+'_'+str(k)+'_'+'cplex.csv',mode='w') as writefile:
+                        function_table = csv.writer(writefile, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+                        function_table.writerow([name,two_epsilon,p_epsilon,'cplex','cplex'])
+                        for i in range(len(new_fn.end_points())):
+                            function_table.writerow([new_fn.end_points()[i],new_fn.values_at_end_points()[i]])
+                    writefile.close()
+                    k=k+1
+
+                    for node_selection in ['BFS','DFS','BB']:
+                        for lp_size in [0,20,50,100,10000]:
+                            with open(writefile_path+str(name)+'_'+str(k)+'.csv',mode='w') as writefile:
+                                function_table = csv.writer(writefile, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+                                function_table.writerow([name,two_epsilon,p_epsilon,node_selection,lp_size])
+                                for i in range(len(new_fn.end_points())):
+                                    function_table.writerow([new_fn.end_points()[i],new_fn.values_at_end_points()[i]])
+                            writefile.close()
+                            k=k+1
     readfile.close()
 
 def reproduce_function_from_bkpts_and_values(filename):
@@ -328,9 +437,12 @@ def write_function_table(base_function_list,two_slope_fill_in_epsilon_list,filen
         function_table.writerow(['base_function','two_slope_fill_in_epsilon'])
         for s in base_function_list:
             if s=='bcdsp_arbitrary_slope':
-                for k in ['5','6','8','9','15','20','30']:
-                    for two_slope_epsilon in two_slope_fill_in_epsilon_list:
-                        function_table.writerow([s+'_'+k,two_slope_epsilon])
+                for k in [str(50*i) for i in range(1,21)]:
+                    function_table.writerow([s+'_'+k,0])
+            elif s=='gj_2_slope_repeat':
+                for first in ['10','100','1000']:
+                    for second in ['10','100','1000']:
+                        function_table.writerow([s+'_'+first+'_'+second,0])
             else:
                 for two_slope_epsilon in two_slope_fill_in_epsilon_list:
                     function_table.writerow([s,two_slope_epsilon])
@@ -398,16 +510,15 @@ def measure_T_is_subadditive(fn,max_number_of_bkpts,search_method,solver='Coin',
     t1=sage_timeit('proc()',globals(),seconds=True,**kwds)
     return [T.number_of_nodes(),t1-t2]
 
-def function_random_perturbation(fn,epsilon,number_of_bkpts_ratio=10):
+def function_random_perturbation(fn,epsilon,number_of_bkpts=10):
     """
-    Return a random perturbation of the given function fn. Randomly perturb function values at randomly chosen 1/10 breakpoints.
+    Return a random perturbation of the given function fn. Randomly perturb function values at random 10 breakpoints.
     """
     values=fn.values_at_end_points()
     n=len(fn.end_points())
-    if epsilon==0:
+    if epsilon==0 or n<=12:
         return fn
-    bkpts_number=n//number_of_bkpts_ratio
-    pert_bkpts=random.sample(range(1, n-1), bkpts_number)
+    pert_bkpts=random.sample(range(1, n-1), number_of_bkpts)
     for i in pert_bkpts:
         if random.randint(0,1)==0:
             values[i]+=epsilon
