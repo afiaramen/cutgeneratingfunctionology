@@ -264,7 +264,7 @@ def write_performance_file_minimum(readfile_path,readfile_name,writefile_path):
         global fn
         fn=piecewise_function_from_breakpoints_and_values(bkpts,values)
     readfile.close()
-    with open(writefile_path+'result_'+readfile_name,mode='w') as writefile:
+    with open(writefile_path+'result_min'+readfile_name,mode='w') as writefile:
         performance_table = csv.writer(writefile, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
         performance_table.writerow(['name','two_epsilon','p_epsilon','bkpts','vertices','additive_vertices','min','node_selection','lp_size','time(s)'])
         if method_1=='naive':
@@ -314,13 +314,13 @@ def write_performance_file_minimum(readfile_path,readfile_name,writefile_path):
     writefile.close()
 
 
-def write_performance_file_objective(readfile_name,writefile_path,epsilon=-1/100):
+def write_performance_file_objective(readfile_path,readfile_name,writefile_path,epsilon=-1/100):
     """
     Read from readfile_name and write time performance of checking whether the minimum>=epsilon using either the naive method or fast method.
     """
     bkpts=[]
     values=[]
-    with open(readfilename,mode='r') as readfile:
+    with open(readfile_path+readfile_name,mode='r') as readfile:
         function = csv.reader(readfile,delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
         line_count=0
         for row in function:
@@ -331,8 +331,40 @@ def write_performance_file_objective(readfile_name,writefile_path,epsilon=-1/100
                 bkpt,value=row
                 bkpts.append(QQ(bkpt))
                 values.append(QQ(value))
+        global fn
         fn=piecewise_function_from_breakpoints_and_values(bkpts,values)
     readfile.close()
+    if method_1=='cplex':
+        return
+    with open(writefile_path+'result_objective'+readfile_name,mode='w') as writefile:
+        performance_table = csv.writer(writefile, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+        performance_table.writerow(['name','two_epsilon','p_epsilon','bkpts','vertices','additive_vertices','subadditivity_error','is_nearly_subadditive','node_selection','lp_size','time(s)'])
+        if method_1=='naive':
+            def solve_naive(f):
+                global dummy
+                dummy=SubadditivityTestTree(gmic())
+                dummy.min,a=is_goal_reached(f,goal=epsilon)
+            global proc2
+            proc2=solve_naive
+            t=sage_timeit('proc2(fn)',globals(),number=1,repeat=1,seconds=True)
+            if t<600:
+                t=sage_timeit('proc2(fn)',globals(),seconds=True)
+            m=not dummy.min
+        else:
+            lp=int(method_2)
+            def time_goal():
+                global T
+                T=SubadditivityTestTree(fn,objective_limit=epsilon)
+                T.is_subadditive(stop_if_fail=False,cache_additive_vertices=True,search_method=method_1,max_number_of_bkpts=lp)
+            global proc
+            proc=time_goal
+            t=sage_timeit('proc()',globals(),number=1,repeat=1,seconds=True)
+            if t<600:
+                t=sage_timeit('proc()',globals(),seconds=True)
+            m=T._is_subadditive
+        performance_table.writerow([name,two_epsilon,p_epsilon,len(bkpts),number_of_vertices(fn),number_of_additive_vertices(fn),epsilon,m,method_1,method_2,t])
+    writefile.close()
+
 
 def generate_test_function_library(readfile_name,writefile_path,perturbation_epsilon_list):
     """
@@ -614,7 +646,7 @@ def minimum_of_delta_pi(fn):
                 global_min=delta
     return global_min
 
-def is_goal_reached(fn,goal=0,stop_if_fail=True,keep_exact_solutions=True):
+def is_goal_reached(fn,goal=0,stop_if_fail=False,keep_exact_solutions=True):
     """
     Return if delta_pi of fn can reach goal-epsilon. (Quatratic complexity)
     """
