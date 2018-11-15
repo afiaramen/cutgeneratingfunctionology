@@ -277,7 +277,7 @@ def write_performance_file_minimum(readfile_path,readfile_name,writefile_path):
             t=sage_timeit('proc2(fn)',globals(),number=1,repeat=1,seconds=True)
             if t<600:
                 t=sage_timeit('proc2(fn)',globals(),seconds=True)
-            m=dummy.min
+            m=float(dummy.min)
         elif method_1=='cplex':
             def generate_mip(f):
                 global mip
@@ -287,17 +287,19 @@ def write_performance_file_minimum(readfile_path,readfile_name,writefile_path):
             proc1=generate_mip
             gen_time=sage_timeit('proc1(fn)',globals(),number=1,repeat=1,seconds=True)
             def solve_cplex(p):
-                global mi
-                mi=p.solve()
-                return mi
+                #Why we need to set the global variable to an object? if dummy is a number, then it won't be stored.
+                global dummy
+                dummy=SubadditivityTestTree(gmic())
+                dummy.min=p.solve()
             global sol1
             sol1=solve_cplex
             sol_time=sage_timeit('sol1(mip)',globals(),number=1,repeat=1,seconds=True)
             if sol_time<600:
                 sol_time=sage_timeit('mip.solve()',globals(),seconds=True)
             t=[gen_time,sol_time]
+            m=float(dummy.min)
         else:
-            lp=int(method2)
+            lp=int(method_2)
             def time_min():
                 global T
                 T=SubadditivityTestTree(fn)
@@ -307,7 +309,7 @@ def write_performance_file_minimum(readfile_path,readfile_name,writefile_path):
             t=sage_timeit('proc()',globals(),number=1,repeat=1,seconds=True)
             if t<600:
                 t=sage_timeit('proc()',globals(),seconds=True)
-            mi=T.min
+            m=float(T.min)
         performance_table.writerow([name,two_epsilon,p_epsilon,len(bkpts),number_of_vertices(fn),number_of_additive_vertices(fn),m,method_1,method_2,t])
     writefile.close()
 

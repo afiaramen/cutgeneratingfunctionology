@@ -1,0 +1,2 @@
+name,two_epsilon,p_epsilon,bkpts,vertices,additive_vertices,min,node_selection,lp_size,time(s)
+chen_4_slope,0,0,11,267,66,-7.577272143066693e-15,cplex,cplex,"[0.0469517707824707, 0.0002118316650390625]"
