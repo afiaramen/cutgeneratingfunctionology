@@ -264,7 +264,7 @@ def write_performance_file_minimum(readfile_path,readfile_name,writefile_path):
         global fn
         fn=piecewise_function_from_breakpoints_and_values(bkpts,values)
     readfile.close()
-    with open(writefile_path+'result_min'+readfile_name,mode='w') as writefile:
+    with open(writefile_path+'result_min_'+readfile_name,mode='w') as writefile:
         performance_table = csv.writer(writefile, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
         performance_table.writerow(['name','two_epsilon','p_epsilon','bkpts','vertices','additive_vertices','min','node_selection','lp_size','time(s)'])
         if method_1=='naive':
@@ -336,7 +336,7 @@ def write_performance_file_objective(readfile_path,readfile_name,writefile_path,
     readfile.close()
     if method_1=='cplex':
         return
-    with open(writefile_path+'result_objective'+readfile_name,mode='w') as writefile:
+    with open(writefile_path+'result_objective_'+readfile_name,mode='w') as writefile:
         performance_table = csv.writer(writefile, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
         performance_table.writerow(['name','two_epsilon','p_epsilon','bkpts','vertices','additive_vertices','subadditivity_error','is_nearly_subadditive','node_selection','lp_size','time(s)'])
         if method_1=='naive':
