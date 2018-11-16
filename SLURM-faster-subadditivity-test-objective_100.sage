@@ -21,7 +21,7 @@ logging.disable(logging.INFO)
 readfile_path='./test_functions_csv_library/'
 allFiles=glob.glob(os.path.join('./test_functions_csv_library/*.csv'))
 readfile_name=allFiles[task_id][len(readfile_path):]
-writefile_path='./result_objective_1:100/'
+writefile_path='./result_objective_100/'
 
 write_performance_file_objective(readfile_path,readfile_name,writefile_path,epsilon=-1/100)
 
