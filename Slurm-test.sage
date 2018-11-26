@@ -1,5 +1,5 @@
 #! /home/wangjw/sage/sage-8.3/sage
-#SBATCH --array=0-1 --time=01:00:00
+#SBATCH --array=2276 --time=03:00:00
 #
 # --array: Specify the range of the array tasks.
 # --time: Acceptable time formats include "minutes", "minutes:seconds", "hours:minutes:seconds" etc.
@@ -16,13 +16,11 @@ sys.path = [''] + sys.path
 import igp
 from igp import *
 
-factory=1
+readfile_path='./test_functions_csv_library/'
+allFiles=glob.glob(os.path.join('./test_functions_csv_library/*.csv'))
+readfile_name=allFiles[task_id][len(readfile_path):]
+writefile_path='./result_min/'
 
-for i in range (1000):
-    for j in range(1000):
-        for k in range(1000):
-            for l in range(1000):
-                factory*=1
-print("results : {}".format(factory))
+write_performance_file_minimum(readfile_path,readfile_name,writefile_path)
 
 
