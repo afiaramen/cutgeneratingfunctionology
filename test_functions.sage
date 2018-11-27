@@ -267,17 +267,23 @@ def write_performance_file_minimum(readfile_path,readfile_name,writefile_path):
     with open(writefile_path+'result_min_'+readfile_name,mode='w') as writefile:
         performance_table = csv.writer(writefile, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
         performance_table.writerow(['name','two_epsilon','p_epsilon','bkpts','vertices','additive_vertices','min','node_selection','lp_size','time(s)'])
+        writefile.flush()
         if method_1=='naive':
             def solve_naive(f):
+                #We need to set the global variable to an object? if dummy is a number, then it won't be stored.
                 global dummy
                 dummy=SubadditivityTestTree(gmic())
                 dummy.min=minimum_of_delta_pi(f)
             global proc2
             proc2=solve_naive
             t=sage_timeit('proc2(fn)',globals(),number=1,repeat=1,seconds=True)
+            m=float(dummy.min)
+            performance_table.writerow([name,two_epsilon,p_epsilon,len(bkpts),number_of_vertices(fn),number_of_additive_vertices(fn),m,method_1,method_2,t])
+            writefile.flush()
             if t<600:
                 t=sage_timeit('proc2(fn)',globals(),seconds=True)
-            m=float(dummy.min)
+                performance_table.writerow([name,two_epsilon,p_epsilon,len(bkpts),number_of_vertices(fn),number_of_additive_vertices(fn),m,method_1,method_2,t])
+                writefile.flush()
         elif method_1=='cplex':
             def generate_mip(f):
                 global mip
@@ -287,17 +293,22 @@ def write_performance_file_minimum(readfile_path,readfile_name,writefile_path):
             proc1=generate_mip
             gen_time=sage_timeit('proc1(fn)',globals(),number=1,repeat=1,seconds=True)
             def solve_cplex(p):
-                #Why we need to set the global variable to an object? if dummy is a number, then it won't be stored.
+                #We need to set the global variable to an object? if dummy is a number, then it won't be stored.
                 global dummy
                 dummy=SubadditivityTestTree(gmic())
                 dummy.min=p.solve()
             global sol1
             sol1=solve_cplex
             sol_time=sage_timeit('sol1(mip)',globals(),number=1,repeat=1,seconds=True)
-            if sol_time<600:
-                sol_time=sage_timeit('mip.solve()',globals(),seconds=True)
             t=[gen_time,sol_time]
             m=float(dummy.min)
+            performance_table.writerow([name,two_epsilon,p_epsilon,len(bkpts),number_of_vertices(fn),number_of_additive_vertices(fn),m,method_1,method_2,t])
+            writefile.flush()
+            if sol_time<600:
+                sol_time=sage_timeit('mip.solve()',globals(),seconds=True)
+                t=[gen_time,sol_time]
+                performance_table.writerow([name,two_epsilon,p_epsilon,len(bkpts),number_of_vertices(fn),number_of_additive_vertices(fn),m,method_1,method_2,t])
+                writefile.flush()
         else:
             lp=int(method_2)
             def time_min():
@@ -307,12 +318,14 @@ def write_performance_file_minimum(readfile_path,readfile_name,writefile_path):
             global proc
             proc=time_min
             t=sage_timeit('proc()',globals(),number=1,repeat=1,seconds=True)
+            m=float(T.min)
+            performance_table.writerow([name,two_epsilon,p_epsilon,len(bkpts),number_of_vertices(fn),number_of_additive_vertices(fn),m,method_1,method_2,t])
+            writefile.flush()
             if t<600:
                 t=sage_timeit('proc()',globals(),seconds=True)
-            m=float(T.min)
-        performance_table.writerow([name,two_epsilon,p_epsilon,len(bkpts),number_of_vertices(fn),number_of_additive_vertices(fn),m,method_1,method_2,t])
+                performance_table.writerow([name,two_epsilon,p_epsilon,len(bkpts),number_of_vertices(fn),number_of_additive_vertices(fn),m,method_1,method_2,t])
+                writefile.flush()
     writefile.close()
-
 
 def write_performance_file_objective(readfile_path,readfile_name,writefile_path,epsilon=-1/100):
     """
@@ -339,6 +352,7 @@ def write_performance_file_objective(readfile_path,readfile_name,writefile_path,
     with open(writefile_path+'result_objective_'+readfile_name,mode='w') as writefile:
         performance_table = csv.writer(writefile, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
         performance_table.writerow(['name','two_epsilon','p_epsilon','bkpts','vertices','additive_vertices','subadditivity_error','is_nearly_subadditive','node_selection','lp_size','time(s)'])
+        writefile.flush()
         if method_1=='naive':
             def solve_naive(f):
                 global dummy
@@ -347,9 +361,13 @@ def write_performance_file_objective(readfile_path,readfile_name,writefile_path,
             global proc2
             proc2=solve_naive
             t=sage_timeit('proc2(fn)',globals(),number=1,repeat=1,seconds=True)
+            m=not dummy.min
+            performance_table.writerow([name,two_epsilon,p_epsilon,len(bkpts),number_of_vertices(fn),number_of_additive_vertices(fn),epsilon,m,method_1,method_2,t])
+            writefile.flush()
             if t<600:
                 t=sage_timeit('proc2(fn)',globals(),seconds=True)
-            m=not dummy.min
+                performance_table.writerow([name,two_epsilon,p_epsilon,len(bkpts),number_of_vertices(fn),number_of_additive_vertices(fn),epsilon,m,method_1,method_2,t])
+                writefile.flush()
         else:
             lp=int(method_2)
             def time_goal():
@@ -359,10 +377,13 @@ def write_performance_file_objective(readfile_path,readfile_name,writefile_path,
             global proc
             proc=time_goal
             t=sage_timeit('proc()',globals(),number=1,repeat=1,seconds=True)
+            m=T._is_subadditive
+            performance_table.writerow([name,two_epsilon,p_epsilon,len(bkpts),number_of_vertices(fn),number_of_additive_vertices(fn),epsilon,m,method_1,method_2,t])
+            writefile.flush()
             if t<600:
                 t=sage_timeit('proc()',globals(),seconds=True)
-            m=T._is_subadditive
-        performance_table.writerow([name,two_epsilon,p_epsilon,len(bkpts),number_of_vertices(fn),number_of_additive_vertices(fn),epsilon,m,method_1,method_2,t])
+                performance_table.writerow([name,two_epsilon,p_epsilon,len(bkpts),number_of_vertices(fn),number_of_additive_vertices(fn),epsilon,m,method_1,method_2,t])
+                writefile.flush()
     writefile.close()
 
 
