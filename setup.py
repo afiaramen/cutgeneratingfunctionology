@@ -20,7 +20,6 @@ class SageTest(TestCommand):
 
 setup(
     name = "cutgeneratingfunctionology",
-    version = readfile("VERSION").strip(), # the VERSION file is shared with the documentation
     description='An example of a basic sage package',
     long_description = readfile("README.rst"), # get the long description from the README
     url='https://github.com/mkoeppe/cutgeneratingfunctionology',
@@ -42,6 +41,10 @@ setup(
     packages = ['cutgeneratingfunctionology', 'cutgeneratingfunctionology.igp', 'cutgeneratingfunctionology.multirow', 'cutgeneratingfunctionology.dff'],
     include_package_data=True,     # to install the .sage files too
     cmdclass = {'test': SageTest}, # adding a special setup command for tests
-    setup_requires   = ['sage-package'],
+    setup_requires   = ['sage-package', 'setuptools_scm'],
+    use_scm_version={
+        'write_to': 'version.txt',
+        'version_scheme': 'post-release'
+    },
     install_requires = ['sage-package', 'sphinx'],
 )
